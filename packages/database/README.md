@@ -1,0 +1,1 @@
+Execute `npm run db:types` após aplicar as migrações. O arquivo src/database.types.ts é gerado exclusivamente pelo Supabase CLI a partir do banco local; não crie substitutos manuais. A geração falha sem sobrescrever o arquivo anterior quando o banco estiver indisponível.
