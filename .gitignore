@@ -5,5 +5,7 @@ dist/
 !.env.example
 supabase/.temp/
 supabase/.branches/
+supabase/.local/
 coverage/
 *.log
+/marketingfitness-prompt2.zip

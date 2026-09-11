@@ -1,6 +1,12 @@
 # Checkpoint — fase 1: fundação
 
-Data: 2026-09-08. Portão: **NÃO PRONTO PARA O PROMPT 2**.
+Data: 2026-09-08. Portão local inicial: **NÃO PRONTO**. Validação posterior no GitHub: **PRONTO PARA O PROMPT 2**.
+
+## Validação posterior do portão
+
+Em 2026-09-11, o workflow [Foundation](https://github.com/IuriKlima/marketingfitness/actions/runs/34232399381) do commit `d97e88fe7746c8ee99f204186f42ee874cf68a3a` foi auditado. Os jobs `local`, `database` e `secrets` concluíram com sucesso. Isso comprova, no ambiente Linux do CI, `npm ci`, lint, typecheck, testes Node, build, verificação heurística, Gitleaks, aplicação e reset das migrações, 26 asserções pgTAP, lint do banco e geração dos tipos. O bloqueio local de Docker foi superado pelo CI sem tocar produção.
+
+**Decisão:** PRONTO PARA O PROMPT 2, preservadas as regras de RLS, negação por padrão e segredo administrativo somente no backend.
 
 ## Estado inicial e diagnóstico
 
@@ -8,7 +14,7 @@ Data: 2026-09-08. Portão: **NÃO PRONTO PARA O PROMPT 2**.
 
 Assim, nenhuma das tabelas esperadas estava presente e nada da aplicação podia ser executado inicialmente. Não havia documentação anterior para comparar com código. O risco principal era tratar o schema esperado no pedido como se já existisse e como se tivesse sido validado. A correção segura foi construir a fundação do zero e separar resultado de código de comprovação integrada.
 
-Git foi inicializado localmente em `main`, sem commit, staging, remoto, push, merge ou deploy. Todos os arquivos entregues permanecem não versionados até revisão/commit. Um endereço para clonagem ainda depende da publicação autorizada pelo responsável.
+Na entrega inicial, Git foi criado em `main`, sem commit ou remoto. Depois, por solicitação do usuário, o commit d97e88f foi publicado em https://github.com/IuriKlima/marketingfitness. Os relatos de bloqueio local e pendências abaixo são históricos da execução de 08/09; a validação posterior do CI, descrita no início deste arquivo, é a avaliação atual da fase 1. O Prompt 2 possui checkpoint próprio.
 
 ## Plano e progresso
 
@@ -95,5 +101,4 @@ Duas academias fictícias, três unidades e três identidades. Leitura e escrita
 
 ## Portão da fase
 
-**NÃO PRONTO.** A camada Node é executável localmente e o pipeline está preparado, mas os critérios essenciais de migrações aplicadas, isolamento RLS comprovado e tipos gerados permanecem bloqueados. Para continuar: resolver Docker, executar db:start/reset/test/lint/types, corrigir eventuais falhas sem enfraquecer políticas, repetir typecheck e registrar os resultados neste arquivo. Só então avaliar Prompt 2.
-
+**PRONTO PARA O PROMPT 2 após validação no CI.** O registro abaixo descreve o bloqueio local original e é mantido como histórico. **NÃO PRONTO naquele ambiente local.** A camada Node é executável localmente e o pipeline está preparado, mas os critérios essenciais de migrações aplicadas, isolamento RLS comprovado e tipos gerados permanecem bloqueados. Para continuar: resolver Docker, executar db:start/reset/test/lint/types, corrigir eventuais falhas sem enfraquecer políticas, repetir typecheck e registrar os resultados neste arquivo. Só então avaliar Prompt 2.

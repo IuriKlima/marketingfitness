@@ -1,1 +1,44 @@
-{"name":"acadeai","private":true,"version":"0.1.0","type":"module","packageManager":"npm@11.8.0","engines":{"node":">=24 <25"},"workspaces":["apps/*","packages/*"],"scripts":{"dev:web":"npm run dev -w @acadeai/web","dev:api":"node --env-file-if-exists=.env --experimental-strip-types apps/api/src/index.ts","dev:worker":"node --env-file-if-exists=.env --experimental-strip-types apps/worker/src/index.ts","lint":"eslint .","typecheck":"tsc --noEmit","test":"node --experimental-strip-types --test tests/*.test.ts","build":"npm run build -w @acadeai/web","db:start":"supabase start","db:reset":"supabase db reset --local","db:test":"supabase test db","db:lint":"supabase db lint --local --level warning --fail-on warning","db:types":"node scripts/generate-types.mjs","secrets:check":"node scripts/check-secrets.mjs"},"dependencies":{"@supabase/supabase-js":"2.116.0","jose":"6.2.12"},"devDependencies":{"@types/node":"24.13.3","eslint":"10.10.0","supabase":"2.117.0","typescript":"5.9.3","typescript-eslint":"8.70.0","vite":"8.2.2"}}
+{
+  "name": "acadeai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "npm@11.8.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @acadeai/web",
+    "dev:api": "node --env-file-if-exists=.env --experimental-strip-types apps/api/src/index.ts",
+    "dev:worker": "node --env-file-if-exists=.env --experimental-strip-types apps/worker/src/index.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "build": "npm run build -w @acadeai/web",
+    "db:start": "node scripts/init-local-signing.mjs && supabase start",
+    "db:reset": "supabase db reset --local",
+    "db:test": "supabase test db",
+    "db:lint": "supabase db lint --local --level warning --fail-on warning",
+    "db:types": "node scripts/generate-types.mjs",
+    "secrets:check": "node scripts/check-secrets.mjs",
+    "setup:local": "node scripts/setup-local.mjs",
+    "sql:bundle": "node scripts/build-supabase-sql.mjs",
+    "bootstrap:local": "node --env-file-if-exists=.env scripts/bootstrap-local.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.116.0",
+    "jose": "6.2.12"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "eslint": "10.10.0",
+    "supabase": "2.117.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0",
+    "vite": "8.2.2"
+  }
+}

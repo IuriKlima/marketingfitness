@@ -14,15 +14,26 @@ enabled = false
 [studio]
 enabled = false
 [local_smtp]
-enabled = false
+enabled = true
+port = 54324
 [storage]
 enabled = true
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:5173"
-additional_redirect_urls = []
+additional_redirect_urls = ["http://127.0.0.1:5173/**"]
 jwt_expiry = 3600
+signing_keys_path = "./.local/signing_keys.json"
 enable_signup = false
+[auth.email.template.invite]
+subject = "Seu convite para AcadeAI"
+content_path = "./supabase/templates/invite.html"
+[auth.email.template.magic_link]
+subject = "Acesse seu convite AcadeAI"
+content_path = "./supabase/templates/magic-link.html"
+[auth.email.template.recovery]
+subject = "Recuperação de acesso AcadeAI"
+content_path = "./supabase/templates/recovery.html"
 [analytics]
 enabled = false
 
