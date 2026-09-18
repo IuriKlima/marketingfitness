@@ -2,7 +2,7 @@
 
 Data: 2026-09-18. Branch: `codex/prompt-3-crm-inbox-ai`.
 
-**NÃO PRONTO PARA O PROMPT 4.** O código da fatia foi implementado e as verificações Node passam, mas a integração real Evolution/LLM e a validação integrada desta fase ainda precisam de evidência no commit final.
+**NÃO PRONTO PARA O PROMPT 4.** O código da fatia foi implementado e a validação estrutural integrada passou, mas a integração real com Evolution/LLM e os fluxos autenticados ainda precisam de evidência ponta a ponta.
 
 ## Portão da fase 2
 
@@ -31,7 +31,7 @@ O script `scripts/init-local-signing.mjs` passou a gerar `alg: ES256`, `use: sig
 - pgTAP fase 3: 43 asserções para papéis/tenants, suspensão, deduplicação, funil, histórico, agenda, takeover, opt-out, webhook, worker, dead-letter, conhecimento e PII de visualizador.
 - O conjunto das quatro suites de banco passa a planejar 107 asserções.
 
-## Resultados locais atuais
+## Resultados verificados
 
 - `npm test`: 21 testes, 21 aprovados.
 - `npm run build`: aprovado; bundle web gerado.
@@ -39,8 +39,12 @@ O script `scripts/init-local-signing.mjs` passou a gerar `alg: ES256`, `use: sig
 - `npm run lint`: aprovado após corrigir imports e parâmetros sem uso identificados pela primeira execução.
 - `npm run typecheck`: aprovado após corrigir dois fallbacks tipados como `unknown` e a assinatura do adapter não configurado.
 - `npm run sql:bundle`: três instaladores gerados sem credenciais.
+- Workflow [35380328644](https://github.com/IuriKlima/marketingfitness/actions/runs/35380328644): jobs `local`, `database` e `secrets` concluídos com sucesso no commit `86a2bc7`.
+- Banco na CI: start/reset, 107 asserções pgTAP, lint sem avisos, geração de tipos e novo typecheck aprovados.
+- Gitleaks oficial: histórico completo sem achados. O falso positivo de uma chave de idempotência fictícia foi removido do commit reescrito.
+- `packages/database/src/database.types.ts`: versionado a partir do artefato `database-types` produzido pelo job de banco aprovado.
 
-Docker Linux continua indisponível nesta máquina, portanto `db:start`, reset, pgTAP, lint e tipos desta fase dependem da CI. Nenhuma migration ou seed desta fase foi aplicado no Supabase hospedado e não houve deploy.
+Docker Linux continua indisponível nesta máquina; por isso, a evidência PostgreSQL desta fase veio da CI Linux. Nenhuma migration ou seed desta fase foi aplicado no Supabase hospedado e não houve deploy.
 
 ## Limitações e riscos abertos
 
@@ -49,6 +53,4 @@ Docker Linux continua indisponível nesta máquina, portanto `db:start`, reset, 
 - O caminho de anexos externos possui o downloader seguro, bucket e metadados, mas o mapeamento de mídia de uma versão Evolution real ainda não foi conectado e validado.
 - A IA está disponível apenas para simulação controlada. Não há provider LLM configurado nem execução automática de ferramentas no worker; ferramentas permanecem contratos allow-listed.
 - O frontend não abriu uma sessão autenticada real desta fase nem recebeu eventos realtime. A atualização atual é por navegação/requisição e está limitada ao tenant pelo BFF/RLS.
-- O arquivo de tipos só pode ser atualizado depois que a migration passar em PostgreSQL real.
-
 Esses itens impedem a declaração `PRONTO PARA O PROMPT 4`, mesmo que a CI estrutural fique verde.
