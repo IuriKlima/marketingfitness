@@ -46,12 +46,22 @@ export function runtimeConfig(env: NodeJS.ProcessEnv) {
   ) throw new Error('APP_ORIGIN must use HTTPS outside local development');
   const production = env.NODE_ENV === 'production';
   if (production && appOrigin.protocol !== 'https:') throw new Error('Production origin must use HTTPS');
+  const optionalUrl = (name:string) => {
+    const value=env[name]; if(!value) return undefined;
+    let parsed:URL; try{parsed=new URL(value);}catch{throw new Error(name+' is invalid');}
+    if(parsed.protocol!=='https:'||(parsed.pathname!=='/'&&parsed.pathname!=='')||parsed.search||parsed.hash||parsed.username||parsed.password) throw new Error(name+' is invalid');
+    return parsed.origin;
+  };
   return {
     ...base,
     publishableKey,
     secretKey,
     contextSecret,
     appOrigin: appOrigin.origin,
-    production
+    production,
+    publicWebhookBaseUrl:optionalUrl('PUBLIC_WEBHOOK_BASE_URL'),
+    llmApiUrl:optionalUrl('LLM_API_URL'),
+    llmApiKey:env.LLM_API_KEY && env.LLM_API_KEY.length>=20 && !env.LLM_API_KEY.includes('<') ? env.LLM_API_KEY : undefined,
+    llmModel:env.LLM_MODEL && !env.LLM_MODEL.includes('<') ? env.LLM_MODEL.slice(0,120) : undefined
   };
 }

@@ -2,6 +2,11 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RuntimeConfig } from './config.ts';
 import { validateOnboardingDocument } from '../../../packages/contracts/src/onboarding.ts';
 import { adminSupabase, publicSupabase, userSupabase } from './supabase.ts';
+import { bodyBoolean, bodyString, correlationId, HttpError, send } from './http.ts';
+import { rateLimit } from './http.ts';
+import { crmRoutes, handleCrm } from './crm-handlers.ts';
+import { aiRoutes, handleAi } from './ai-handlers.ts';
+import { handleEvolutionWebhook, handleInbox, inboxRoutes } from './inbox-handlers.ts';
 import {
   cookieNames, csrfIsValid, normalizedEmail, originIsValid, parseCookies,
   randomToken, readJson, requiredString, serializeCookie, sha256,
@@ -17,28 +22,6 @@ type ContextRow = {
   unit_name:string;
   roles:string[];
 };
-
-class HttpError extends Error {
-  status: number;
-  code: string;
-  details?: unknown;
-  constructor(status: number, code: string, details?: unknown) {
-    super(code);
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
-
-function send(res: ServerResponse, status: number, body: unknown, cookies: string[] = []) {
-  res.statusCode = status;
-  res.setHeader('Content-Type','application/json; charset=utf-8');
-  res.setHeader('Cache-Control','no-store');
-  res.setHeader('X-Content-Type-Options','nosniff');
-  res.setHeader('Referrer-Policy','no-referrer');
-  if (cookies.length) res.setHeader('Set-Cookie',cookies);
-  res.end(JSON.stringify(body));
-}
 
 function sessionCookies(config: RuntimeConfig, session: SessionShape) {
   const names = cookieNames(config.production);
@@ -120,21 +103,6 @@ async function requireTenantContext(
   return {context,available};
 }
 
-function bodyString(body: Record<string,unknown>, name: string, min = 1, max = 5000) {
-  if (name === 'password') {
-    if (typeof body[name] !== 'string' || body[name].length < min || body[name].length > max) throw new HttpError(400,'invalid_password');
-    return body[name];
-  }
-  return requiredString(body[name],name,min,max);
-}
-
-function bodyBoolean(body: Record<string,unknown>, name: string, fallback = false) {
-  const value = body[name];
-  if (value === undefined) return fallback;
-  if (typeof value !== 'boolean') throw new HttpError(400,'invalid_' + name);
-  return value;
-}
-
 async function validateOnboarding(
   config: RuntimeConfig,
   accessToken: string,
@@ -156,10 +124,12 @@ export function appHandler(config: RuntimeConfig, verify: Verify) {
 
   return async function handle(req: IncomingMessage, res: ServerResponse) {
     try {
+      res.setHeader('X-Correlation-ID',correlationId(req));
       // Supabase Auth clients retain in-memory sessions; never share them between requests.
       const publicClient = publicSupabase(config);
       const url = new URL(req.url ?? '/',config.appOrigin);
       const path = url.pathname.startsWith('/api/') ? url.pathname.slice(4) : url.pathname;
+      if (await handleEvolutionWebhook(req,res,url,config)) return;
       if (req.method === 'GET' && path === '/health') {
         return send(res,200,{service:'api',status:'ok'});
       }
@@ -180,6 +150,7 @@ export function appHandler(config: RuntimeConfig, verify: Verify) {
       }
 
       if (req.method === 'POST' && path === '/auth/login') {
+        rateLimit('login:'+String(req.socket.remoteAddress),20,60000);
         requireOrigin(req,config);
         const body = await readJson(req);
         const email = normalizedEmail(body.email);
@@ -190,6 +161,7 @@ export function appHandler(config: RuntimeConfig, verify: Verify) {
       }
 
       if (req.method === 'POST' && path === '/auth/recover') {
+        rateLimit('recover:'+String(req.socket.remoteAddress),5,60000);
         requireOrigin(req,config);
         const body = await readJson(req);
         const email = normalizedEmail(body.email);
@@ -253,13 +225,29 @@ export function appHandler(config: RuntimeConfig, verify: Verify) {
         'POST /onboarding/review',
         'POST /onboarding/attachments/upload-url'
         ,'PUT /onboarding/attachments/content'
-        ,'GET /onboarding/attachments/content'
+        ,'GET /onboarding/attachments/content',...crmRoutes,...inboxRoutes,...aiRoutes
       ]);
       if (!protectedRoute.has((req.method ?? 'GET') + ' ' + path)) {
         return send(res,404,{error:'not_found'});
       }
 
       const auth = await authenticate(req,config,verify);
+
+      const routeKey=(req.method ?? 'GET')+' '+path;
+      if (crmRoutes.has(routeKey)||inboxRoutes.has(routeKey)||aiRoutes.has(routeKey)) {
+        const mutation=!['GET','HEAD'].includes(req.method ?? 'GET');
+        const limit=path==='/inbox/messages'?30:path==='/ai/simulate'?10:path.startsWith('/channels/')?10:mutation?120:600;
+        rateLimit('domain:'+auth.userId+':'+routeKey,limit,60000);
+        if (mutation) {
+          requireOrigin(req,config);
+          requireCsrf(req,auth.cookies,auth.names.csrf);
+        }
+        const tenant=await requireTenantContext(config,auth.accessToken,auth.cookies);
+        if (crmRoutes.has(routeKey)) await handleCrm({req,res,url,path,config,auth,tenant});
+        else if (inboxRoutes.has(routeKey)) await handleInbox({req,res,url,path,config,auth,tenant});
+        else await handleAi({req,res,url,path,config,auth,tenant});
+        return;
+      }
 
       if (req.method === 'GET' && path === '/auth/session') {
         const [roles,available] = await Promise.all([
@@ -638,10 +626,11 @@ export function appHandler(config: RuntimeConfig, verify: Verify) {
         return send(res,error.status,{error:error.code,details:error.details});
       }
       if (error instanceof SyntaxError) return send(res,400,{error:'invalid_json'});
-      if (error instanceof Error && /^invalid_[a-z_]+$/.test(error.message)) return send(res,400,{error:error.message});
+      if (error instanceof Error && /^(?:invalid_[a-z_]+|contact_identifier_required)$/.test(error.message)) return send(res,400,{error:error.message});
       if (error instanceof Error && error.message === 'payload_too_large') {
         return send(res,413,{error:'payload_too_large'});
       }
+      console.error(JSON.stringify({level:'error',event:'request_failed',correlationId:res.getHeader('X-Correlation-ID'),code:'internal_error'}));
       return send(res,500,{error:'internal_error'});
     }
   };

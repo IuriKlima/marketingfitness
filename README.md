@@ -1,18 +1,16 @@
 # AcadeAI — Marketing Fitness
 
-Monorepo TypeScript para academias e redes. A fase 2 implementa identidade, painéis, convites e onboarding. CRM e automações de marketing permanecem para fases posteriores.
+Monorepo TypeScript de uma aplicação SaaS multi-tenant para academias. A base atual reúne identidade e onboarding, CRM e agenda, caixa de atendimento, WhatsApp via Evolution API, outbox/worker e uma assistente governada por fontes aprovadas.
 
-Estado e resultados: [fase 1](docs/progress/phase-1-foundation.md) e [fase 2](docs/progress/phase-2-identity-onboarding.md). A fundação passou no CI; a migração da fase 2 ainda exige validação no Supabase.
+Checkpoints: [fase 1](docs/progress/phase-1-foundation.md), [fase 2](docs/progress/phase-2-identity-onboarding.md) e [fase 3](docs/progress/phase-3-crm-inbox-ai.md). Consulte o checkpoint antes de tratar uma integração como aprovada.
 
-Para usar o projeto Supabase hospedado, os instaladores SQL, verificações e passos de primeiro acesso estão em [supabase/sql-editor/LEIA-ME.md](supabase/sql-editor/LEIA-ME.md). Gere os instaladores com `npm run sql:bundle`. A API aceita também `SUPABASE_ANON_KEY` como alternativa legada à chave publicável; essas chaves ficam somente no `.env` do backend.
+## Requisitos e validação local
 
-## Preparar o projeto
-
-Requisitos: Node.js 24, npm 11.8.0, Git e Docker Desktop com engine Linux disponível.
+- Node.js 24 e npm 11.8.0
+- Git
+- Docker Desktop com engine Linux para o Supabase local
 
 ```sh
-git clone https://github.com/IuriKlima/marketingfitness.git
-cd marketingfitness
 npm ci
 npm run lint
 npm run typecheck
@@ -21,9 +19,23 @@ npm run build
 npm run secrets:check
 ```
 
-As alterações deste pacote estão na branch local `codex/prompt-2-identity-onboarding`. Até essa branch ser publicada e integrada, um clone da main contém somente a fase 1. As dependências usam exclusivamente npm e o lockfile.
+As dependências usam npm workspaces e versões fixadas no lockfile. O browser conversa apenas com o BFF na mesma origem; credenciais administrativas nunca entram no bundle.
 
-## Supabase de desenvolvimento
+## Ambiente
+
+Copie `.env.example` para `.env` sem versionar. Os placeholders não são credenciais.
+
+| Processo | Variáveis |
+| --- | --- |
+| API e worker | `SUPABASE_URL`, `SUPABASE_JWT_ISSUER`, `SUPABASE_PUBLISHABLE_KEY` ou `SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY`, `SESSION_CONTEXT_SECRET`, `APP_ORIGIN` |
+| API | `API_PORT`, `PUBLIC_WEBHOOK_BASE_URL` opcional |
+| Worker | `WORKER_PORT`, `WORKER_ID` e `WORKER_POLL_MS` opcionais |
+| IA | `LLM_API_URL`, `LLM_API_KEY` e `LLM_MODEL`, todas opcionais e somente no backend |
+| Web | `VITE_API_BASE_URL=/api` |
+
+`SESSION_CONTEXT_SECRET` deve ter ao menos 32 bytes aleatórios. `PUBLIC_WEBHOOK_BASE_URL` deve ser HTTPS e alcançável pela Evolution API. Sem as três variáveis LLM, a interface informa que o provider não está configurado e a simulação recusa a operação. Sem configuração completa do backend, o worker inicia health com `processing:false`.
+
+## Supabase
 
 ```sh
 npm run db:start
@@ -34,25 +46,17 @@ npm run db:types
 npm run setup:local
 ```
 
-`db:start` prepara uma chave ES256 de desenvolvimento em `supabase/.local/signing_keys.json`, ignorada pelo Git, antes de iniciar o Supabase. Não a exibe nem substitui uma chave existente. Isso mantém os tokens do Auth compatíveis com o verificador JWKS.
+`db:start` cria ou repara somente os metadados públicos da chave ES256 local (`alg`, `use` e `key_ops`), preservando e não imprimindo o material criptográfico. `db:reset` destrói apenas o banco local deste projeto. Os testes pgTAP usam dados `example.test` e rollback.
 
-`db:reset --local` recria o banco local deste projeto e elimina seus dados locais. O schema usa três migrações aditivas. Os testes pgTAP usam dados inteiramente fictícios e rollback. Nenhum comando acima acessa produção.
+`db:types` gera `packages/database/src/database.types.ts` a partir do schema aplicado. Não mantenha tipos manuais como substituto de uma geração que falhou.
 
-`setup:local` lê o status do Supabase sem exibir credenciais e cria os arquivos ignorados `.env` e `apps/web/.env.local`. Não sobrescreve configuração existente. Exige que o CLI disponibilize as chaves modernas `PUBLISHABLE_KEY` e `SECRET_KEY`. Caso não estejam disponíveis, configure as variáveis abaixo a partir do seu ambiente de desenvolvimento.
+Para SQL Editor, execute `npm run sql:bundle` e siga [supabase/sql-editor/LEIA-ME.md](supabase/sql-editor/LEIA-ME.md). Há instaladores distintos para projeto novo, atualização da fase 1 e atualização da fase 2. Execute somente o que corresponde ao estado real do banco. Nenhum instalador contém chaves ou seed.
 
-| Ambiente | Variáveis |
-| --- | --- |
-| API | SUPABASE_URL, SUPABASE_JWT_ISSUER, SUPABASE_PUBLISHABLE_KEY (ou SUPABASE_ANON_KEY legada), SUPABASE_SECRET_KEY, SESSION_CONTEXT_SECRET, APP_ORIGIN, API_PORT |
-| Web | VITE_API_BASE_URL=/api; VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY são aceitas para compatibilidade |
-| Worker | WORKER_PORT |
+O seed em [supabase/seeds/phase3-dev.sql](supabase/seeds/phase3-dev.sql) é opcional, idempotente, fictício e exige uma flag explícita na mesma transação. Ele não participa de migrations nem do reset por padrão e deve permanecer fora de produção.
 
-O navegador acessa a API da mesma origem e não armazena access/refresh tokens em JavaScript. Somente a API recebe SUPABASE_SECRET_KEY. SESSION_CONTEXT_SECRET deve ser aleatória e ter pelo menos 32 bytes. Os exemplos contêm apenas placeholders. Não cole valores privados em issues, documentação ou saídas de testes.
+## Executar
 
-`db:types` gera `packages/database/src/database.types.ts` diretamente do schema aplicado. Geração com erro preserva o arquivo anterior. Não crie um substituto manual. O arquivo atualizado precisa ser gerado, revisado e versionado após a validação do banco.
-
-## Executar a aplicação
-
-Em terminais separados na raiz:
+Use terminais separados:
 
 ```sh
 npm run dev:api
@@ -60,67 +64,46 @@ npm run dev:web
 npm run dev:worker
 ```
 
-- Web: http://127.0.0.1:5173/login
-- API: http://127.0.0.1:3001/health e /ready
-- Worker: http://127.0.0.1:3002/health
-- Mailpit local: http://127.0.0.1:54324
+- Web: `http://127.0.0.1:5173/login`
+- API: `http://127.0.0.1:3001/health` e `/ready`
+- Worker: `http://127.0.0.1:3002/health`
+- Mailpit local: `http://127.0.0.1:54324`
 
-O Vite encaminha /api ao backend. A API precisa das variáveis configuradas para iniciar. Health verifica o processo; readiness verifica JWKS e o catálogo de onboarding. O worker continua com `processing:false`.
+O primeiro acesso local pode ser criado com `npm run bootstrap:local` depois que o Supabase estiver pronto. O comando é restrito ao ambiente local, usa um endereço fictício e não imprime credenciais.
 
-Para o primeiro acesso **somente no ambiente local padrão**, com Supabase funcionando e configuração pronta:
+## Módulos da fase 3
 
-```sh
-npm run bootstrap:local
-```
+- `/app/crm`: indicadores, leads, tarefas, visitas e contatos paginados.
+- `/app/crm/pipelines`: Kanban acessível por botões/teclado, tabela e rollback após falha.
+- `/app/crm/contatos/:id`: identificadores, consentimentos, oportunidades, agenda e linha do tempo.
+- `/app/agenda`: calendário/lista comercial.
+- `/app/atendimento` e `/app/atendimento/:id`: caixa, mensagens, contexto do lead, takeover e devolução à IA.
+- `/app/canais`: estados honestos de WhatsApp, Instagram e TikTok; conexão, diagnóstico, pausa e revogação da Evolution.
+- `/app/assistente-ia`: configuração, limites, simulação restrita e histórico.
+- `/app/base-conhecimento`: fontes, conteúdo versionado, indexação e aprovação explícita.
+- `/app/filas`: prioridade, membros, capacidade e SLA.
 
-Esse comando convida `platform-admin@example.test` no Auth local e atribui supreme no container de banco deste projeto. O e-mail é capturado pelo Mailpit local. Abra o link ali, defina a senha e acesse o painel da plataforma. Execute uma vez em um banco local novo; ele não reconfigura usuário já existente. Nenhuma credencial é impressa. O comando não foi executado nesta máquina porque o Docker está indisponível.
+Os handlers estão separados por domínio em `apps/api/src`. O worker usa claim concorrente, lease, backoff, jitter e dead-letter. A [matriz de acesso](docs/access-matrix.md) descreve os papéis. Runbooks cobrem [Evolution/webhook](docs/runbooks/evolution-webhook.md), [outbox](docs/runbooks/outbox-dead-letter.md), [handoff](docs/runbooks/human-handoff.md), [revogação](docs/runbooks/channel-revocation.md) e [IA](docs/runbooks/ai-guardrails.md).
 
-Em um projeto hospedado de desenvolvimento, o responsável cria/convida o primeiro usuário de plataforma pelo Auth, usa redirect `https://SEU_APP/invite?bootstrap=true` e atribui o papel global em uma sessão administrativa auditada:
-
-```sql
--- Substituir pelo UUID do usuário de plataforma verificado pelo responsável.
-insert into private.platform_roles(user_id, role)
-values ('<UUID_DO_USUARIO_VERIFICADO>', 'supreme')
-on conflict do nothing;
-```
-
-Essa é uma ação de bootstrap restrita ao operador. Não há endpoint público para ganhar papel global.
-
-## Fluxos da fase 2
-
-- Login, logout, renovação, recuperação, convite e troca de senha usam cookies HttpOnly e proteção de origem/CSRF. Chaves de assinatura do Auth devem ser assimétricas (ES256/RS256); JWTs HS256 são recusados.
-- O painel Supremo provisiona academia/unidade, envia convites e revisa onboardings. Ele não recebe membership nem bypass operacional implícito.
-- Admins de academia convidam pessoas apenas no escopo autorizado. O papel e as unidades existentes são preservados; aceite de convite não pode ampliar o escopo controlado pelo convidante.
-- Contexto de academia/unidade é assinado, vinculado ao usuário e revalidado contra memberships/grants ativos.
-- Onboarding usa definições versionadas, autosave serializado, revisão otimista para detectar outra edição, validação de campos na API e no banco, envio imutável e revisão com campos pendentes.
-- Aprovar cria fatos confirmados e auditoria na mesma transação. Devolver encerra a versão; a próxima gravação cria outra versão.
-- Anexos privados usam metadados vinculados à empresa, unidade e versão. O upload atravessa a API com cookies/CSRF e o Storage com o JWT do usuário. Não há URL de upload privilegiada no navegador. Downloads de revisores exigem autorização e auditoria.
-
-## Segurança e produção
+## Segurança
 
 ```text
-Web -> /api na mesma origem -> cookies HttpOnly / Origin / CSRF
-API -> JWT verificado em JWKS -> usuário e contexto autorizado
-API -> cliente do usuário -> PostgREST e Storage sob RLS
-API administrativa -> RPC service-only -> ator revalidado + auditoria
-Worker -> contrato OutboxPort (sem consumidor)
-PostgreSQL public com RLS | private.platform_roles | private.outbox
+Web -> BFF na mesma origem -> cookies HttpOnly + Origin + CSRF
+BFF -> JWT por JWKS -> usuário + contexto assinado e revalidado
+Cliente do usuário -> PostgREST/Storage sob RLS
+Operação administrativa -> RPC service-only -> ator + organização + unidade + auditoria
+Webhook opaco -> autenticação + deduplicação -> outbox
+Worker -> provider -> evento append-only de entrega
 ```
 
-A suspensão impede operação de membros e suporte; suporte exige grant ativo, e revisão exige read_write. Papéis globais e de academia são separados. Convites guardam somente o hash SHA-256, expiram e só podem ser aceitos uma vez. RLS e grants negam alterações de plano, status, papéis e concessões pelo navegador.
+Toda tabela operacional inclui organização; registros de unidade usam foreign keys compostas. Supremo não recebe acesso operacional implícito. Suporte exige grant temporário. Organização suspensa não opera. Visualizador não recebe PII ou corpo de mensagens. Credenciais de canal ficam no Vault.
 
-`onboarding_field_definitions` é catálogo global de configuração, por schema_version; não é uma tabela operacional de academia. Os documentos, revisões, convites e anexos têm organization_id e vínculos de unidade apropriados.
+Mensagens e históricos comerciais são imutáveis; status são eventos. Contatos são deduplicados por identificador normalizado. Operações críticas usam idempotency keys. Downloads externos têm bloqueio de redes privadas/metadata, redirects, tamanho, allowlist e assinatura real de MIME.
 
-Antes de produção: configure HTTPS e web/API na mesma origem; NODE_ENV=production; segredos em cofre; Auth sem cadastro público; limites de Auth apropriados; proteção contra senhas vazadas; MFA para operadores de plataforma; backups e políticas de retenção. O pacote não implementa uma tela de desafio MFA — esse fluxo e sua imposição devem ser resolvidos antes de liberar acesso de plataforma em produção.
+A IA usa apenas fatos e versões aprovadas e registra as fontes. Prompt injection é bloqueada antes do provider, ferramentas são allow-listed e opt-out impede mensagens automáticas. Este controle não autoriza um modelo ou provider específico por si só; valide a integração de desenvolvimento descrita no checkpoint.
 
-O proxy de produção deve enviar CSP e X-Frame-Options, preservar cookies e não registrar corpos, cookies, cabeçalhos de autenticação nem query strings dos callbacks. Não exponha os tokens de convite em logs de acesso. O CSP no HTML não substitui os cabeçalhos do proxy.
+## Produção
 
-Templates locais estão em `supabase/templates`, referenciados no config.toml. Configure os mesmos templates no Auth hospedado. O template de magic link também é necessário para convites de usuários que já possuem conta. Os redirects de convite carregam um parâmetro inicial; use URLs exatas autorizadas em produção, sem o wildcard local.
+Não aplique os comandos locais nem o seed em produção. Configure HTTPS na mesma origem, CSP e headers no proxy, Auth sem cadastro público, redirects exatos, SMTP, backups, retenção, rotação de segredos e MFA para operadores de plataforma. Não registre cookies, Authorization, tokens de convite, query strings de callback, telefones, e-mails ou corpos de mensagens.
 
-Referências oficiais para esse comportamento: [templates de e-mail](https://supabase.com/docs/guides/auth/auth-email-templates), [templates locais](https://supabase.com/docs/guides/local-development/customizing-email-templates) e [redirects](https://supabase.com/docs/guides/auth/redirect-urls).
-
-## Verificação e continuidade
-
-O workflow `.github/workflows/ci.yml` separa testes Node, Supabase/Docker e Gitleaks. A suite atual contém 14 testes Node e 64 asserções pgTAP planejadas. A varredura local de credenciais é heurística e inclui o bundle.
-
-No momento da entrega, lint, typecheck, testes Node e build passaram. Banco local, geração de tipos, envio real de e-mail e fluxos integrados Auth/Storage não foram validados nesta máquina. O CI da fase 1 passou; o CI da fase 2 ainda não foi executado. Consulte o checkpoint antes de avançar.
+Uma chave administrativa que tenha sido compartilhada fora do cofre deve ser rotacionada no Supabase e substituída diretamente no ambiente. Não a reenvie em chat, commit ou log.

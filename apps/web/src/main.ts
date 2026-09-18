@@ -1,5 +1,6 @@
 import './styles.css';
 import { api, ApiError, jsonBody } from './api.ts';
+import { isPhase3Path, phase3Navigation, renderPhase3 } from './phase3.ts';
 import { escapeHtml, fieldId, statusLabel } from '../../../packages/ui/src/primitives.ts';
 
 type ContextRow = {
@@ -177,6 +178,7 @@ function shell(title:string, content:string, active:string) {
     '<aside class="sidebar glass" id="sidebar">' + logo() + '<nav aria-label="Principal">' +
     '<a class="nav-link ' + (active === 'academy' ? 'active' : '') + '" href="/academy" data-link>Visão geral</a>' +
     '<a class="nav-link ' + (active === 'onboarding' ? 'active' : '') + '" href="/onboarding" data-link>Onboarding</a>' +
+    phase3Navigation(active) +
     (context?.roles.includes('academy_admin') ? '<a class="nav-link" href="/members" data-link>Convites</a>' : '') +
     platformLink + '</nav><div class="sidebar-footer">' +
     (context ? '<div class="context-chip"><strong>' + escapeHtml(context.organization_name) + '</strong><br><span class="muted">' + escapeHtml(context.unit_name) + '</span></div>' : '') +
@@ -573,6 +575,7 @@ async function render() {
   if (path === '/platform') return platformPage();
   if (path === '/onboarding') return onboardingPage();
   if (path === '/members') return invitationsPage();
+  if (isPhase3Path(path)) return renderPhase3(path,{shell,navigate,message,setDispose:dispose=>{disposePage=dispose;}});
   return academyPage();
 }
 

@@ -6,8 +6,9 @@ Projeto desta configuracao: `aweehmmspdqdgxaayxaq`. O `.env` local usa a URL-bas
 
 Abra o [SQL Editor do projeto](https://supabase.com/dashboard/project/aweehmmspdqdgxaayxaq/sql/new), selecione o papel `postgres` e execute o conteudo completo de **somente um** arquivo:
 
-- **01_instalacao_completa.sql**: projeto novo, sem as tabelas AcadeAI. Inclui as tres migracoes: fundacao, identidade/onboarding e correcoes de autorizacao.
-- **02_atualizar_fase1.sql**: projeto que ja recebeu integralmente a migracao `20260908000000_foundation.sql`. Inclui somente as duas migracoes seguintes.
+- **01_instalacao_completa.sql**: projeto novo, sem tabelas AcadeAI. Inclui as seis migracoes ate CRM, atendimento e IA.
+- **02_atualizar_fase1.sql**: projeto que ja recebeu integralmente apenas `20260908000000_foundation.sql`. Inclui fases 2 e 3.
+- **03_atualizar_fase2.sql**: projeto que ja recebeu integralmente as tres migracoes da fase 2. Inclui somente as tres migracoes da fase 3.
 
 Nao execute os dois em sequencia. Cada arquivo usa uma unica transacao: um erro aborta suas alteracoes. Os instaladores detectam objetos existentes e interrompem execucoes indevidas; nao sao scripts para reaplicacao. Se houver uma instalacao parcial ou customizada, revise-a antes de executar. Eles nao apagam tabelas, contas nem historico. As policies de Storage do pacote sao substituidas dentro da mesma transacao para aplicar as restricoes novas.
 
@@ -15,9 +16,9 @@ Os arquivos sao gerados das fontes em `supabase/migrations` por `npm run sql:bun
 
 ## 2. Conferir a instalacao
 
-Execute **90_verificar.sql**. As 13 tabelas devem existir, com RLS ativo e sem acesso de `anon`. O catalogo deve ter 30 campos na versao 1; a coluna `revision` deve existir; o bucket `onboarding-private` deve ser privado. As RPCs administrativas devem permitir execucao apenas ao backend entre os tres papeis verificados.
+Execute **90_verificar.sql**. Todas as tabelas listadas devem existir com RLS ativo e sem acesso de `anon`. O catalogo deve ter 30 campos na versao 1; a coluna `revision` deve existir; os buckets devem ser privados. A verificacao separa RPCs administrativas exclusivas do backend das RPCs operacionais autenticadas.
 
-Essa conferencia e estrutural. Os SQL foram gerados e revisados localmente; nao foram executados no seu projeto por esta tarefa e nao substituem os 64 testes pgTAP pendentes. Nao execute scripts de reset nem dados ficticios de teste no projeto hospedado.
+Essa conferencia e estrutural e nao substitui os 106 testes pgTAP planejados. Nao execute scripts de reset nem o seed ficticio no projeto hospedado.
 
 ## 3. Configurar Authentication
 
@@ -42,7 +43,7 @@ Entre em `http://127.0.0.1:5173/login` com o e-mail e a senha dessa conta. O pap
 
 A API agora aceita `SUPABASE_ANON_KEY` como alternativa legada quando `SUPABASE_PUBLISHABLE_KEY` nao esta definida. A configuracao rejeita chave com papel administrativo nesse campo, expiracao vencida ou referencia de outro projeto; o Supabase valida sua assinatura durante a conexao. A verificacao de sessoes de usuarios continua exigindo assinatura JWKS, issuer, audience e papel authenticated.
 
-O `.env` contem `SUPABASE_URL`, `SUPABASE_JWT_ISSUER`, `SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY`, `SESSION_CONTEXT_SECRET`, `APP_ORIGIN`, `API_PORT` e `WORKER_PORT`. A chave de contexto foi gerada localmente com 32 bytes aleatorios. O frontend usa somente `VITE_API_BASE_URL=/api`; nenhuma das duas chaves fornecidas e incorporada ao bundle.
+O `.env` contem as variaveis Supabase, `SESSION_CONTEXT_SECRET`, `APP_ORIGIN`, portas e, opcionalmente, `PUBLIC_WEBHOOK_BASE_URL` e as tres variaveis LLM. O frontend usa somente `VITE_API_BASE_URL=/api`; nenhuma chave e incorporada ao bundle.
 
 Como a chave administrativa foi compartilhada na conversa, substitua-a no painel e atualize o `.env` diretamente, sem reenviar o segredo no chat. Prefira chaves modernas: preencha `SUPABASE_PUBLISHABLE_KEY` com a nova chave publicavel, remova `SUPABASE_ANON_KEY` e atualize `SUPABASE_SECRET_KEY` com uma nova chave secreta. Criar chaves modernas nao revoga as legadas: desative as antigas apos a substituicao. Veja a [documentacao oficial de chaves](https://supabase.com/docs/guides/getting-started/api-keys).
 

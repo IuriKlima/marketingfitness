@@ -21,6 +21,16 @@
   --radius-md: 18px;
   --radius-lg: 28px;
   --blur: 22px;
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --z-dropdown: 20;
+  --z-modal: 50;
+  --z-toast: 70;
+  --focus-ring: 0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent);
 }
 
 @media (prefers-color-scheme: dark) {
